@@ -18,6 +18,47 @@ endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 DB_PATH = "daily_dollar.db"
 
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            phone TEXT,
+            password_hash TEXT NOT NULL,
+            sms_opt_in BOOLEAN DEFAULT 0,
+            auto_entry BOOLEAN DEFAULT 0,
+            streak INTEGER DEFAULT 0,
+            last_entry_date TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            date TEXT NOT NULL,
+            entry_type TEXT CHECK(entry_type IN ('main', 'free')),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS winners (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            entry_type TEXT CHECK(entry_type IN ('main', 'free')),
+            prize_amount REAL,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+    
 def enter_daily_dollar(user_id, entry_type):
     cst = pytz.timezone('US/Central')
     now = datetime.now().astimezone(cst)
