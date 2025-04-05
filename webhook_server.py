@@ -1,4 +1,3 @@
-
 # webhook_server.py
 
 from flask import Flask, request, jsonify
@@ -21,7 +20,6 @@ DB_PATH = "daily_dollar.db"
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +32,6 @@ def init_db():
             last_entry_date TEXT
         )
     ''')
-
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +41,6 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')
-
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS winners (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,10 +51,9 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
     ''')
-
     conn.commit()
     conn.close()
-    
+
 def enter_daily_dollar(user_id, entry_type):
     cst = pytz.timezone('US/Central')
     now = datetime.now().astimezone(cst)
@@ -105,6 +100,9 @@ def stripe_webhook():
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
         username = session.get('client_reference_id')
+        price_id = session['display_items'][0]['price']['id'] if 'display_items' in session else None
+
+        print(f"New completed checkout from: {username}, price_id: {price_id}")
 
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -114,10 +112,10 @@ def stripe_webhook():
 
         if user:
             user_id = user[0]
-            # Optionally check for price ID here if you want to separate logic
-            enter_daily_dollar(user_id, "main")
+            enter_daily_dollar(user_id, "main")  # Always a main entry for now
 
     return jsonify({'status': 'success'}), 200
 
 if __name__ == "__main__":
+    init_db()
     app.run(host="0.0.0.0", port=8080)
